@@ -1,0 +1,74 @@
+name: QA automation
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_k6:
+        description: Run the optional, low-volume API performance smoke test
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_URL: ${{ vars.BASE_URL || 'https://opensource-demo.orangehrmlive.com' }}
+      HRM_USERNAME: ${{ secrets.HRM_USERNAME || 'Admin' }}
+      HRM_PASSWORD: ${{ secrets.HRM_PASSWORD || 'admin123' }}
+      ESS_USERNAME: ${{ secrets.ESS_USERNAME }}
+      ESS_PASSWORD: ${{ secrets.ESS_PASSWORD }}
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run typecheck
+      - run: npm test
+      - name: Publish HTML report and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  performance:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_k6
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ vars.BASE_URL || 'https://opensource-demo.orangehrmlive.com' }}
+      HRM_USERNAME: ${{ secrets.HRM_USERNAME || 'Admin' }}
+      HRM_PASSWORD: ${{ secrets.HRM_PASSWORD || 'admin123' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+      - name: Run API performance smoke test
+        run: k6 run --vus 1 --duration 30s performance/employee-lifecycle.js
+      - name: Publish performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-performance-${{ github.run_number }}
+          path: performance/summary.*
+          if-no-files-found: warn
+          retention-days: 14
