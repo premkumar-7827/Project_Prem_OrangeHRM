@@ -1,0 +1,21 @@
+{
+    "name": "orangehrm-qa-automation",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Senior QA automation exercise for OrangeHRM employee lifecycle testing",
+    "scripts": {
+        "test": "playwright test",
+        "test:smoke": "playwright test --grep @smoke",
+        "test:regression": "playwright test --grep @regression",
+        "test:headed": "playwright test --headed",
+        "report": "playwright show-report",
+        "typecheck": "tsc --noEmit",
+        "perf:smoke": "k6 run performance/employee-lifecycle.js"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.56.0",
+        "@types/node": "^22.15.0",
+        "dotenv": "^16.4.7",
+        "typescript": "^5.8.3"
+    }
+}
